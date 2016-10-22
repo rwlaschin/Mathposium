@@ -1,0 +1,460 @@
+<html>
+    <head>
+        <style>
+            /* http://paletton.com/#uid=3370u0k7y9C5Sml71gAeg7xkv6N */
+            .color-primary-0 .normal1 { color: #27332F } // Main Primary color 
+            .color-primary-1 .highlight1 { color: #61766F }
+            .color-primary-2 .emphasis1 { color: #455852 }
+            .color-primary-3 .tint1 { color: #162822 }
+            .color-primary-4 .background1 { color: #0D241C }
+
+            .color-secondary-1-0 .normal2 { color: #4D453B } // Main Secondary color (1)
+            .color-secondary-1-1 .highlight2 { color: #B2A591 }
+            .color-secondary-1-2 .emphasis2 { color: #847967 }
+            .color-secondary-1-3 .tint2 { color: #3C3121 }
+            .color-secondary-1-4 .background2 { color: #362813 }
+
+            .color-secondary-2-0 .normal3 { color: #46363A } // Main Secondary color (2)
+            .color-secondary-2-1 .highlight3 { color: #A3868C }
+            .color-secondary-2-2 .emphasis3  { color: #795F65 }
+            .color-secondary-2-3 .tint3 { color: #371F24 }
+            .color-secondary-2-4 .background3 { color: #321219 }
+
+            body {
+                background-color: #0D241C;
+                color: white;
+                font-weight: 900; 
+            }
+            #chooser,#challenges,#pausemenu {
+                border-radius: 25px 100px;
+                background-color: #321219;
+                border: 25px solid #362813;
+                width: 800px;
+                height: 400px;
+            }
+            #canvas {
+                box-sizing: border-box;
+                background-color: #371F24;
+                border: 50px #162822 solid;
+            }
+            #canvas table {
+                width: 100%;
+            }
+            #canvas #header td {
+                font-size: +3em;
+            }
+            table#board {
+                height: 400px;
+            }
+
+            #board td:last-child {
+                background-color: #362813;
+            }
+            
+            #board td:first-child {
+                width:65%;
+                text-align: center;
+                font-size : +5em;
+                margin:auto auto;
+            }
+
+            #problem #bottom {
+                text-align:right;
+                right:0px;
+            }
+
+            #problem #separator {
+                border-bottom: 3px solid white;
+                margin:auto auto;
+                width: 2em;
+            }
+
+            #problemContainer {
+                width: 2em;
+                margin: auto auto;
+            }
+
+            #toast {
+                text-align: center !important;
+                font-size: +5em;
+            }
+
+            #problemContainer div {
+                text-align: right;
+                margin: 0 0 0 auto;
+            }
+
+            #pauseContainer {
+                position: absolute;
+                top:0px; left: 0px;
+                width:100%;
+                height:100%;
+                z-index:100;
+            }
+
+            .obscurer {
+                position:absolute;
+                top:0;
+                left:0;
+                z-index:10;
+                width:100%;
+                height:680px;
+                background-color: #362813;
+                opacity: 0.7; -ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=70)"; filter: alpha(opacity=70); 
+                z-index:+1;
+            }
+
+            #pausemenu {
+                z-index:+10;
+                text-align: center !important;
+                font-size: +5em;
+            }
+
+            .button {
+                border: 3px solid;
+                width: initial !important;
+            }
+
+            #pausemenu .button {
+                border-color: #455852;
+                background-color: #27332F;
+            }
+
+            #pausemenu .button:hover {
+                border-color: #61766F;
+            }
+
+            #pausemenu .button:active {
+                border-color: #162822;
+            }
+
+            #pausedmessage {
+                padding-bottom: 25px;
+            }
+
+            .play {
+                width: 0;
+                height: 0;
+                border-top: 8px solid transparent;
+                border-left: 12px solid grey;
+                border-bottom: 8px solid transparent;
+            }
+            .pause {
+                width: 8px;
+                height: 24px;
+                border-right: 8px solid grey;
+                border-left: 8px solid grey;
+            }
+
+            div.pause {
+                margin-left: auto;
+            }
+
+            img[alt=Addition] {
+            }
+            img[alt=Subtraction] {
+            }
+            img[alt=Multiplication] {
+            }
+            img[alt=Division] {
+            }
+            .hidden {
+                display : none;
+            }
+            .center {
+                position: absolute;
+                top: 50%; left: 50%;
+                transform: translate(-50%,-50%); -webkit-transform: translate(-50%,-50%); -ms-transform: translate(-50%,-50%);
+            }
+        </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+        <script src="gamestate.js"></script>
+    </head>
+    <body>
+         <!-- header challenge name (multiplication, addition) |  problems remaining | countdown timer -->
+        <div>
+            <div id='canvas' class='hidden'>
+                <table id="header">
+                    <tr>
+                        <td class="challenge"><span id="challenge"></span> Level - <span id="level"></span>
+                        <td class="progress"><span id="correct"></span> of <span id="completed"></span>
+                        <td class="timer"><span id="minutes"></span>:<span id="seconds"></span>.<span id="milliseconds"></span>
+                </table>
+                <table id='board'>
+                    <tr>
+                        <td><div id='problem'>
+                                <div id='problemContainer'>
+                                    <div id='top'></div>
+                                    <div><span id='sign'></span><span id='bottom'></span></div>
+                                    <div id='separator'></div>
+                                    <div id='answer'></div>
+                                </div>
+                            </div>
+                        <td><div id='toast'></div>
+                </table>
+                <table id="footer">
+                    <tr>
+                        <td class="">
+                        <td class="">
+                        <td class="controls"><div class="pause" onclick="_Manager.changeState('pause');"></div>
+                </table>
+            </div>
+
+            <div id='chooser' class='hidden center'>
+                <div class="center">
+                <ul>
+                    <li><img class="chooser" alt="Addition" onclick="startMode.call(this)"/></li>
+                    <li><img class="chooser" alt="Subtraction" onclick="startMode.call(this)"/></li>
+                    <li><img class="chooser" alt="Multiplication" onclick="startMode.call(this)"/></li>
+                    <li><img class="chooser" alt="Division" onclick="startMode.call(this)"/></li>
+                </ul>
+                </div>
+            </div>
+            <div id='challenges' class='hidden center'>
+                <div class="center">
+                <ul>
+                    <li><span class="challenges" onclick="startChallenge.call(this)">training</span></li>
+                    <li><span class="challenges" onclick="startChallenge.call(this)">easy</span></li>
+                    <li><span class="challenges" onclick="startChallenge.call(this)">medium</span></li>
+                    <li><span class="challenges" onclick="startChallenge.call(this)">hard</span></li>
+                    <li><span class="challenges" onclick="startChallenge.call(this)">legendary</span></li>
+                </ul>
+                </div>
+            </div>
+            <div id='pauseContainer' class='hidden'>
+                <div class="obscurer"></div>
+                <div id='pausemenu' class="menu center">
+                    <div id='pausedmessage'>Paused</div>
+                    <div class='button' onclick="_Manager.state.TryUpdate('menupausetransition')">Resume</div>
+                    <div class='button' onclick="_Manager.state.TryUpdate('menuexittransition')">Quit</div>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script>
+        function GameState() {
+            function StateData() {
+                var self = this, data = {};
+                this.pens = function(pen) {
+                    return data[pen] || [];
+                };
+                // auto adds a new pen, could accidentially
+                // add new pens with typos
+                this.insert = function(pen,cb,context) {
+                    data[pen] = data[pen] || [];
+                    data[pen].push( { processor : cb, context : context || window, remove : false } );
+                };
+            }
+            var self = this;
+            var data = {
+                cur : 'load',
+                prev : undefined,
+                states : { 'load' : new StateData('load') }
+            };
+            this.TryUpdate = function(state) {
+                if( state in data.states ) {
+                    data.next = state;
+                }
+            };
+            this.Resolve = function() {
+                if( data.cur != data.next ) {
+                    data.prev = data.cur;
+                    data.cur = data.next;
+                    return true;
+                }
+            };
+            this.Add = function(state) {
+                data.states[state] = new StateData();
+            };
+            this.GetCurrentObjects = function (pass) {
+                return data.states[data.cur].pens(pass) || [];
+            };
+            this.GetStateObject = function (state) {
+                return data.states[state];
+            };
+        }
+        
+    </script>
+    <script>
+        var _Manager = {
+            time : { prev: 0, cur: new Date().getTime(), delta : 0 },
+            states : { pause: new GameState(), default: new GameState() },
+            state : undefined,
+            data : { keys: undefined, problems: [] },
+
+            changeState : function(name) {
+                _Manager.state = _Manager.states[name];
+            }
+        }
+    </script>
+    <script>
+        function updateLoop(timestamp) {
+            
+            if( _Manager.state.Resolve() === true ) {
+                loop( 'stateupdate' );
+            }
+            if( _Manager.time.prev != 0 ) {
+                loop( 'preupdate' );
+                loop( 'update' );
+                loop( 'postupdate' );
+            }
+            updateTime(timestamp);
+            requestAnimationFrame(updateLoop);
+        }
+
+        function loop(processName) {
+            var items = _Manager.state.GetCurrentObjects(processName);
+            var litems = items.length, item, remove;
+            for( var i =0 ; i < litems; i++) {
+                item = items[i];
+                try {
+                    item.remove = (item.processor.call(item.context,_Manager.time) === true);
+                } catch(e) {}
+            }
+        }
+
+        function updateTime(timestamp) {
+            _Manager.time.prev = _Manager.time.cur;
+            _Manager.time.cur = timestamp;
+            _Manager.time.delta = _Manager.time.cur - _Manager.time.prev;
+        }
+        requestAnimationFrame(updateLoop);
+    </script>
+    <script>
+        function loadGame() {
+
+            _Manager.changeState('default');
+            
+            setupStates( _Manager.states.default );
+            setupMenu( _Manager.states.default );
+            setupPause( _Manager.states.pause );
+
+            // loaded externally
+            setupMode( _Manager.states.default );
+
+            _Manager.state.TryUpdate('menutransition');
+        }
+
+        function setupPause( pauseState ) {
+            pauseState.Add('menupause');
+            pauseState.Add('menupausetransition');
+            pauseState.Add('menuexittransition');
+
+            var state;
+            state = pauseState.GetStateObject('menupause');
+            state.insert('stateupdate',function() {
+                $('#pauseContainer').removeClass('hidden');
+            });
+            state = pauseState.GetStateObject('menupausetransition');
+            state.insert('stateupdate',function() {
+                // change back to the starting state for menu
+                pauseState.TryUpdate('menupause');
+                _Manager.changeState('default');
+                $('#pauseContainer').addClass('hidden');
+            });
+
+            state = pauseState.GetStateObject('menuexittransition');
+            state.insert('stateupdate',function() {
+                // change back to the starting state for menu
+                pauseState.TryUpdate('menupause');
+                _Manager.changeState('default');
+                _Manager.state.TryUpdate('menutransition');
+                $('#pauseContainer').addClass('hidden');
+            });
+
+            pauseState.TryUpdate('menupause');
+        }
+
+        function setupStates( gameState ) {
+            gameState.Add('menutransition');
+            gameState.Add('menu');
+            gameState.Add('menuchallengetransition');
+            gameState.Add('menuchallenge');
+            
+            gameState.Add('gametransition');
+            gameState.Add('game');
+
+            gameState.Add('gamegenerate');
+            gameState.Add('gamewait');
+            gameState.Add('gameresolve');
+            gameState.Add('gameleveltransition');
+
+            gameState.Add('gamescoring');
+        }
+
+        function setupMenu( gameState ) {
+            var state;
+            
+            state = gameState.GetStateObject('menutransition');
+            // hide menu
+
+            // refactor
+            state.insert('update', function() {
+                // hide the chooser
+                $('#chooser').removeClass('hidden');
+            });
+            state.insert('postupdate', function() {
+                _Manager.state.TryUpdate('menu');
+            });
+            state = gameState.GetStateObject('menuchallengetransition');
+            state.insert('update', function() {
+                $('#chooser').addClass('hidden');
+            });
+            state.insert('update', function() {
+                $('#challenges').removeClass('hidden');
+            });
+
+            state.insert('postupdate', function() {
+                gameState.TryUpdate('menuchallenge');
+            });
+
+            // state = gameState.GetStateObject('menu');
+            state = gameState.GetStateObject('gametransition');
+            state.insert('update', function() {
+                $('#challenges').addClass('hidden');
+            });
+        }
+
+        function startMode() {
+            // switch the game mode functions
+            setModeState($(this).attr('alt'));
+            _Manager.state.TryUpdate('menuchallengetransition');
+        }
+
+        function startChallenge() {
+            var ranges = $(this).text().split('-');
+            setRange(ranges[0],ranges[1]);
+
+            _Manager.state.TryUpdate('gametransition');
+        }
+
+        function handleKeyPress(event) {
+            // backspace erases
+            // numbers are recorded
+            // everything else is ignored
+            _Manager.data.keys = _Manager.data.keys || [];
+
+            switch(event.key) {
+                case "0": case "1": case "2":
+                case "3": case "4": case "5": 
+                case "6": case "7": case "8": case "9":
+                    _Manager.data.keys.push( event.key );
+                    break;
+                case 'Delete':
+                    _Manager.data.keys.push( 'clr' );
+                    break;
+                case 'Backspace':
+                    _Manager.data.keys.push( 'del' );
+                    break;
+                case 'Enter':
+                    _Manager.data.keys.push( 'ans' );
+                    break;
+            }
+        }
+
+        loadGame();
+
+        // I need a chooser, probably a panel to choose the type of game
+        // radio button addition, subtraction, multiplication, division
+    </script>
+</html>
