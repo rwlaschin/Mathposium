@@ -252,7 +252,7 @@ function stopLoopingSound(sound) {
 		sound.removeEventListener('ended', handlerLooping);
 	}
 	sound.volume = 0;
-	sound.stop();
+	sound.pause();
 }
 
 function gameResolve(state) {
