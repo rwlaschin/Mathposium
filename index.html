@@ -1,5 +1,6 @@
 <html>
     <head>
+        <meta charset="utf-8"/>
         <style>
             /* http://paletton.com/#uid=3370u0k7y9C5Sml71gAeg7xkv6N */
             .color-primary-0 .normal1 { color: #27332F } // Main Primary color 
@@ -45,6 +46,10 @@
             }
             table#board {
                 height: 400px;
+            }
+
+            td:last-child {
+                text-align:right;
             }
 
             #board td:last-child {
@@ -177,6 +182,7 @@
                 <table id="header">
                     <tr>
                         <td class="challenge"><span id="challenge"></span> Level - <span id="level"></span>
+                        <td class=""><span id="score">
                         <td class="progress"><span id="correct"></span> of <span id="completed"></span>
                         <td class="timer"><span id="minutes"></span>:<span id="seconds"></span>.<span id="milliseconds"></span>
                 </table>
@@ -232,7 +238,7 @@
         </div>
     </body>
     <script>
-        function GameState() {
+        function StateManager() {
             function StateData() {
                 var self = this, data = {};
                 this.pens = function(pen) {
@@ -278,7 +284,7 @@
     <script>
         var _Manager = {
             time : { prev: 0, cur: new Date().getTime(), delta : 0 },
-            states : { pause: new GameState(), default: new GameState() },
+            states : { pause: new StateManager(), default: new StateManager() },
             state : undefined,
             data : { keys: undefined, problems: [] },
 
