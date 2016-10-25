@@ -38,11 +38,11 @@ var _gameData = {
 	           {min:0,max:100,base:{min:20,max:"max",step:16},completed:25}
 	          ],
 	difficulties : { 
-		'training' : {mistakes:undefined,time:undefined,multiplier:1}, // training should help you practice ones you don't know
-		    'easy' : {mistakes:25,time:120,multiplier:2}, 
-	      'medium' : {mistakes:10,time:120,multiplier:3}, 
-	        'hard' : {mistakes:5,time:60,multiplier:4}, 
-	   'legendary' : {mistakes:2,time:45,multiplier:5} 
+		'training' : {mistakes:undefined,time:undefined,multiplier:0,base:1}, // training should help you practice ones you don't know
+		    'easy' : {mistakes:25,time:120,multiplier:2,base:100}, 
+	      'medium' : {mistakes:10,time:120,multiplier:3,base:150}, 
+	        'hard' : {mistakes:5,time:60,multiplier:4,base:175}, 
+	   'legendary' : {mistakes:2,time:45,multiplier:5,base:200} 
 	},
 	score : undefined,
 	music : undefined,
@@ -69,6 +69,7 @@ function resetLevel() {
 	_gameData.problems[ _gameData.level ] = [];
 	_gameData.correct = 0;
 	_gameData.streak = 0;
+	_gameData.score = 0;
 	_gameData.time = { delta: 0, average: undefined, level: 0, total: 0 };
 	$('.progress #correct,.progress #completed').text("0");
 }
@@ -162,6 +163,8 @@ function gameTransition(state) {
 		$('#level').text(_gameData.level+1);
 		$('.timer #minutes,.timer #seconds').text("00");
 		$('#toast').text("Good luck!");
+		$('#score').attr('tgt',0);
+		$('#score').html(0);
 	});
 	state.insert('postupdate',function() { // pass-in time object
 		$('#canvas').removeClass('hidden');
@@ -207,6 +210,7 @@ function gameGenerate(state) {
 }
 
 function gameWait(state) {
+	var $score = $('#score');
 	state.insert('stateupdate', function(){ 
 		_gameData.time.delta = 0;
 	});
@@ -235,7 +239,13 @@ function gameWait(state) {
 			}
 		}
 		_Manager.data.keys = [];
-
+	});
+	state.insert('update',function(timer) {
+		var scr = parseInt($score.text()), tgt = parseInt($score.attr('tgt'));
+		if( tgt > scr ) {
+			var value = scr + Math.floor((tgt - scr) / 20);
+			$score.text( value > tgt ? tgt : value );
+		}
 	});
 
 	function format( value, pad, padChar ) {
@@ -356,6 +366,11 @@ function gameResolve(state) {
 			playSound(sounds.correct.random());
 			_gameData.streak++;
 
+			var score = (data.top - Math.abs(data.bottom - data.top))/10+_gameData.difficulties[_gameData.difficulty].base
+			;
+			var bonus = _gameData.difficulties[_gameData.difficulty].multiplier + _gameData.streak/3;
+			_gameData.score += Math.round(score * bonus);
+
 		} else {
 			_gameData.streak = 0;
 			$('#toast').text( phrases.incorrect.random() );
@@ -367,6 +382,8 @@ function gameResolve(state) {
 		var progress = _gameData.correct;
 		var time = _gameData.time.level / 1000; // miliseconds to seconds
 		var mistakes = _gameData.problems[ _gameData.level ].length - _gameData.correct;
+
+		$('#score').attr('tgt',_gameData.score);
 		
 		/*if(  _gameData.limits.mistakes !== undefined && mistakes >= _gameData.limits.mistakes 
 		  || _gameData.limits.time !== undefined && time >= _gameData.limits.time ) {

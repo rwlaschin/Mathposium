@@ -176,7 +176,6 @@
         <script src="gamestate.js"></script>
     </head>
     <body>
-         <!-- header challenge name (multiplication, addition) |  problems remaining | countdown timer -->
         <div>
             <div id='canvas' class='hidden'>
                 <table id="header">
@@ -204,6 +203,8 @@
                         <td class="">
                         <td class="controls"><div class="pause" onclick="_Manager.changeState('pause');"></div>
                 </table>
+                <div id="scoreboard">
+                </div>
             </div>
 
             <div id='chooser' class='hidden center'>
@@ -250,6 +251,16 @@
                     data[pen] = data[pen] || [];
                     data[pen].push( { processor : cb, context : context || window, remove : false } );
                 };
+                this.remove = function(pen,cb,context) {
+                    var penitems = data[pen], lpenitems = penitems.length, item;
+                    context = context || window;
+                    for(var i=lpenitems-1; i>=0; i++) {
+                        item = penitems[i];
+                        if( item && item.processor === cb && item.context == context) {
+                            item.remove = true;
+                        }
+                    }
+                }
             }
             var self = this;
             var data = {
@@ -322,7 +333,8 @@
         function updateTime(timestamp) {
             _Manager.time.prev = _Manager.time.cur;
             _Manager.time.cur = timestamp;
-            _Manager.time.delta = _Manager.time.cur - _Manager.time.prev;
+            _Manager.time.delta = (_Manager.time.cur - _Manager.time.prev) / 1000;
+console.info( "delta -> " + _Manager.time.delta );
         }
         requestAnimationFrame(updateLoop);
     </script>
