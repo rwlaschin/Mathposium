@@ -1,7 +1,7 @@
 
 // I'm naughty makes the code nicer
 Array.prototype.random = function() {
-	return this[ Math.floor(Math.random() * this.length) ];
+	return this[ Math.randomBetween(0,this.length-1) ];
 }
 
 Math.randomBetween = function(min,max) {
@@ -29,28 +29,31 @@ var _gameData = {
 		'Multiplication' : _multiplication
 	},
 	level : undefined,
-	levels : [ {min:0,max:5,completed:25},
-               {min:0,max:10,completed:25},
-	           {min:0,max:20,completed:25},
-	           {min:0,max:30,completed:25},
-	           {min:0,max:50,completed:25},
-	           {min:0,max:70,completed:25},
-	           {min:0,max:100,completed:25}
+	levels : [ {min:0,max:5,base:{min:0,max:"max",step:1},completed:25},
+               {min:0,max:10,base:{min:5,max:"max",step:1},completed:25},
+	           {min:0,max:20,base:{min:5,max:"max",step:3},completed:25},
+	           {min:0,max:30,base:{min:10,max:"max",step:4},completed:25},
+	           {min:0,max:50,base:{min:10,max:"max",step:8},completed:25},
+	           {min:0,max:70,base:{min:15,max:"max",step:13},completed:25},
+	           {min:0,max:100,base:{min:20,max:"max",step:16},completed:25}
 	          ],
 	difficulties : { 
-		'training' : {mistakes:undefined,time:undefined}, // training should help you practice ones you don't know
-		    'easy' : {mistakes:25,time:120}, 
-	      'medium' : {mistakes:10,time:120}, 
-	        'hard' : {mistakes:5,time:60}, 
-	   'legendary' : {mistakes:2,time:45} 
+		'training' : {mistakes:undefined,time:undefined,multiplier:1}, // training should help you practice ones you don't know
+		    'easy' : {mistakes:25,time:120,multiplier:2}, 
+	      'medium' : {mistakes:10,time:120,multiplier:3}, 
+	        'hard' : {mistakes:5,time:60,multiplier:4}, 
+	   'legendary' : {mistakes:2,time:45,multiplier:5} 
 	},
+	score : undefined,
 	music : undefined,
 	problems : [],
 	difficulty : 'easy',
-	range : [ 0, 10 ],
+	range : { min:0, max:10, base:undefined },
+	correct : undefined,
+	streak : 0,
 	limits : undefined,
 	mode : undefined,
-	time : { level: undefined, total: undefined }
+	time : { delta: 0, average: undefined, level: undefined, total: undefined }
 }
 
 function getModes(mode) {
@@ -60,19 +63,32 @@ function getModes(mode) {
 function resetLevel() {
 	_gameData.level = 0;
 	_gameData.limits = _gameData.difficulties[ _gameData.difficulty];
-	setRange( _gameData.levels[ _gameData.level ] );
+	var levelData = _gameData.levels[ _gameData.level ];
+	setRange( levelData, getSkill(levelData) );
 	_gameData.problems = [];
 	_gameData.problems[ _gameData.level ] = [];
+	_gameData.correct = 0;
+	_gameData.streak = 0;
+	_gameData.time = { delta: 0, average: undefined, level: 0, total: 0 };
 	$('.progress #correct,.progress #completed').text("0");
 }
 
 function nextLevel() {
-	if( ++_gameData.level < _gameData.levels.length ) {
-		_gameData.problems[ _gameData.level ] = []
-		setRange( _gameData.levels[ _gameData.level ] );
+	if( isMaxSkill( _gameData.levels[ _gameData.level ] ) ) {
+		++_gameData.level;
 
+		_gameData.problems[ _gameData.level ] = [];
+		_gameData.time.level = 0;
+		_gameData.correct = 0;
 		$('#level').text(_gameData.level + 1);
 		$('.progress #correct,.progress #completed').text("0");
+		$('#toast').text( 'Level Up!' );
+	} else {
+		$('#toast').text( 'Skill Up!' );
+	}
+	if( _gameData.level < _gameData.levels.length ) {
+		var levelData = _gameData.levels[ _gameData.level ]
+		setRange( levelData, getSkill(levelData) );
 		return true;
 	}
 }
@@ -93,8 +109,25 @@ function setModeState(mode) {
 	}
 }
 
-function setRange(range) {
-	_gameData.range = [ range.min, range.max ];
+function setRange(range, base) {
+	_gameData.range = { min: range.min, max: range.max, base: base};
+}
+
+function getSkill(levelData) {
+	var min = Number.isInteger(levelData.base.min) ? levelData.base.min : levelData[levelData.base.min], 
+	    max = Number.isInteger(levelData.base.max) ? levelData.base.max : levelData[levelData.base.max];
+	if( _gameData.range.base === undefined ) {
+		return min;
+	}
+	var next = _gameData.range.base+levelData.base.step;
+	if( next >= max )
+		return max;
+	return next;
+}
+
+function isMaxSkill(levelData) {
+	var max = Number.isInteger(levelData.base.max) ? levelData.base.max : levelData[levelData.base.max];
+	return ( _gameData.range.base >= max );
 }
 
 function setupMode( gameState ) {
@@ -174,6 +207,9 @@ function gameGenerate(state) {
 }
 
 function gameWait(state) {
+	state.insert('stateupdate', function(){ 
+		_gameData.time.delta = 0;
+	});
 	state.insert('preupdate', function(){
 		// check the keys that were pressed, update to the answer field
 		var keys = _Manager.data.keys, lkeys = _Manager.data.keys.length, ikeys = 0, key, text;
@@ -212,35 +248,50 @@ function gameWait(state) {
 		return res;
 	}
 
-	var startTime = new Date().getTime(), curTime, deltaTime;
 	var $minContainer = $('#minutes'), $secContainer = $('#seconds'), $milContainer = $('#milliseconds');
 	state.insert('update',function(time) {
-		curTime = new Date().getTime();
-		deltaTime = curTime - startTime;
-		$minContainer.html( format( deltaTime / 60 / 1000, 2, "0" ) );
-		$secContainer.html( format( (deltaTime / 1000) % 60, 2, "0" ) );
-		$milContainer.html( format( (deltaTime / 100) % 100 , 2, "0" ) );
+		_gameData.time.delta += time.delta;
+		_gameData.time.level += time.delta;
+		_gameData.time.total += time.delta;
+		$minContainer.html( format( _gameData.time.total / 60 / 1000, 2, "0" ) );
+		$secContainer.html( format( (_gameData.time.total / 1000) % 60, 2, "0" ) );
+		$milContainer.html( format( (_gameData.time.total / 100) % 100 , 2, "0" ) );
 	});
 }
 
 function playSound(sound) {
-	sound.currentTime = 0
-	sound.volume = .5;
-	sound.play();
+	try {
+		sound.pause();
+		sound.currentTime = 0
+		sound.volume = .5;
+		sound.play();
+	} catch (e) {
+		console.error(e);
+	}
 }
 
 function handlerLooping() {
-	this.currentTime = 0;
-	this.play();
+	try {
+		this.pause();
+		this.volume = .2;
+		this.currentTime = 0;
+		this.play();
+	} catch (e) {
+		console.error(e);
+	}
 }
 
 function createLoopingSound(file) {
 	var sound = new Audio(file); 
-	sound.volume = .2;
-	if( typeof sound.loop === 'boolean' ) {
-		sound.loop = true;
-	} else {
-		sound.addEventListener('ended', handlerLooping, false);
+	try {
+		sound.volume = .2;
+		if( typeof sound.loop === 'boolean' ) {
+			sound.loop = true;
+		} else {
+			sound.addEventListener('ended', handlerLooping, false);
+		}
+	} catch(e) {
+		console.error(e);
 	}
 	return sound;
 }
@@ -253,6 +304,27 @@ function stopLoopingSound(sound) {
 	}
 	sound.volume = 0;
 	sound.pause();
+}
+
+function calculateScore() {
+	var bonus = 0;
+	var total = 0;
+	// var 
+
+	if( _gameData.time.delta < _gameData.time.average ) {
+		// bonus
+	}
+
+	switch(streak) {
+		case 0: break;
+		case 1: break;
+		case 2: break;
+		case 3: break;
+		case 4: break;
+		default: break;
+	}
+
+	return { bonus: 0, total: 0, types};
 }
 
 function gameResolve(state) {
@@ -272,25 +344,35 @@ function gameResolve(state) {
 
 		$('#completed').text( cnt );
 		data.answer = $('#answer').text();
-		// TODO: get how long it took to answer
+		data.time = _gameData.time;
+		_gameData.time.average = _gameData.time.average * (cnt-1) + _gameData.time.delta;
 
 		if( parseFloat(data.answer) == parseFloat(data.expected) ) {
+			_gameData.correct++;
 			$('#toast').text( phrases.correct.random() );
 			var $elem = $('#correct');
 			var value = parseInt($elem.text()) + 1;
 			$elem.text( value );
 			playSound(sounds.correct.random());
+			_gameData.streak++;
+
 		} else {
+			_gameData.streak = 0;
 			$('#toast').text( phrases.incorrect.random() );
 			playSound(sounds.incorrect.random());
 		}
 	});
 
 	state.insert('postupdate',function() {
-		// when am I done, max number of questions
-		// check timer as well here
-
-		if( _gameData.levels[ _gameData.level ].completed <= _gameData.problems[_gameData.level].length ) {
+		var progress = _gameData.correct;
+		var time = _gameData.time.level / 1000; // miliseconds to seconds
+		var mistakes = _gameData.problems[ _gameData.level ].length - _gameData.correct;
+		
+		/*if(  _gameData.limits.mistakes !== undefined && mistakes >= _gameData.limits.mistakes 
+		  || _gameData.limits.time !== undefined && time >= _gameData.limits.time ) {
+		  	_Manager.state.TryUpdate('gamescoring');
+		} else*/ if(   ( progress > 0 && progress%5==0 )
+			|| _gameData.levels[ _gameData.level ].completed <= progress ) {
 			_Manager.state.TryUpdate('gameleveltransition');
 		} else {
 			_Manager.state.TryUpdate('gamegenerate');
@@ -305,12 +387,6 @@ function gameLevelTransition(state) {
 		levelTransition = nextLevel();
 	});
 
-	state.insert('preupdate',function() { 
-		if( levelTransition ) {
-			$('#toast').text( 'Level Up!' );
-		}
-	} );
-
 	state.insert('postupdate',function() { 
 		if( levelTransition ) {
 			_Manager.state.TryUpdate('gamegenerate');
@@ -324,8 +400,8 @@ function gameLevelTransition(state) {
 _addition.add('problem', function() {
 	// what is the range for the answer?
 	// choose number between range
-	var expected = Math.randomBetween( _gameData.range[0], _gameData.range[1] ),
-	    top = Math.floor( Math.random() * expected ), 
+	var expected = Math.randomBetween( _gameData.range.min, _gameData.range.max ),
+	    top = Math.randomBetween(0, Math.min(expected,_gameData.range.base)), 
 	    bottom = Math.floor( expected - top );
 	return { sign: '+', top: top, bottom: bottom, expected: expected, answer: undefined };
 });
@@ -333,8 +409,8 @@ _addition.add('problem', function() {
 _subtraction.add('problem', function() {
 	// what is the range for the answer?
 	// choose number between range 
-	var expected = Math.randomBetween( _gameData.range[0], _gameData.range[1] ),
-	    top = Math.floor( Math.random() * expected ), 
+	var expected = Math.randomBetween( _gameData.range.min, _gameData.range.max ),
+	    top = Math.randomBetween(0,Math.min(expected,_gameData.range.base)), 
 	    bottom = Math.floor( expected - top );
 	return { sign: '-', top: expected, bottom: top, expected: bottom, answer: undefined };
 });
@@ -342,8 +418,8 @@ _subtraction.add('problem', function() {
 _multiplication.add('problem', function() {
 	// what is the range for the answer?
 	// choose number between range
-	var expected = Math.randomBetween( _gameData.range[0], _gameData.range[1] );
-	var top = Math.floor( Math.randomBetween(0,expected) );
+	var expected = Math.randomBetween( _gameData.range.min, _gameData.range.max );
+	var top = Math.randomBetween(0,Math.min(expected,_gameData.range.base));
 
 	var bottom;
 	if( top == 0 ) {
@@ -360,8 +436,8 @@ _multiplication.add('problem', function() {
 });
 
 _division.add('problem', function() {
-	var expected = Math.randomBetween( _gameData.range[0], _gameData.range[1] );
-	var top = Math.floor( Math.randomBetween(0,expected) );
+	var expected = Math.randomBetween( _gameData.range.min, _gameData.range.max );
+	var top = Math.randomBetween(0,Math.min(expected,_gameData.range.base));
 
 	var bottom = 0;
 	if( top == 0 ) {
