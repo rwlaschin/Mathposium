@@ -2,7 +2,10 @@
     <head>
         <meta charset="utf-8"/>
         <style>
-            /* http://paletton.com/#uid=3370u0k7y9C5Sml71gAeg7xkv6N */
+            /* Make sounds http://www.bfxr.net/ */
+            /* Convert sounds http://media.io/ */
+            /* Color Pallet http://paletton.com/#uid=3370u0k7y9C5Sml71gAeg7xkv6N */
+            /* Color Picker http://www.w3schools.com/colors/colors_picker.asp */
             .color-primary-0 .normal1 { color: #27332F } // Main Primary color 
             .color-primary-1 .highlight1 { color: #61766F }
             .color-primary-2 .emphasis1 { color: #455852 }
@@ -26,7 +29,7 @@
                 color: white;
                 font-weight: 900; 
             }
-            #chooser,#challenges,#pausemenu {
+            #chooser,#challenges,#pausemenu,#scoreboard {
                 border-radius: 25px 100px;
                 background-color: #321219;
                 border: 25px solid #362813;
@@ -79,6 +82,10 @@
                 margin: auto auto;
             }
 
+            #mistakes {
+                color: #ff3333;
+            }
+
             #toast {
                 text-align: center !important;
                 font-size: +5em;
@@ -109,9 +116,12 @@
                 z-index:+1;
             }
 
-            #pausemenu {
+            #pausemenu,#scoreboard {
                 z-index:+10;
                 text-align: center !important;
+            }
+
+            #pausemenu {
                 font-size: +5em;
             }
 
@@ -145,10 +155,29 @@
                 border-bottom: 8px solid transparent;
             }
             .pause {
+                display: inline-block;
                 width: 8px;
                 height: 24px;
                 border-right: 8px solid grey;
                 border-left: 8px solid grey;
+            }
+
+            input#unmute {
+                display: none;
+            }
+            .unmute img {
+                display: none;
+            }
+            input#unmute:checked ~ .unmute img {
+                display: initial;
+            }
+            input#unmute:checked ~ .mute img {
+                display: none;
+            }
+            .mute img, .unmute img {
+                width: 25px;
+                filter: invert(50%);
+                -webkit-filter: invert(50%);
             }
 
             div.pause {
@@ -171,6 +200,9 @@
                 top: 50%; left: 50%;
                 transform: translate(-50%,-50%); -webkit-transform: translate(-50%,-50%); -ms-transform: translate(-50%,-50%);
             }
+            #scoreboardPanel {
+                width:100%;
+            }
         </style>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
         <script src="gamestate.js"></script>
@@ -181,8 +213,8 @@
                 <table id="header">
                     <tr>
                         <td class="challenge"><span id="challenge"></span> Level - <span id="level"></span>
+                        <td class="progress"><span id="correct"></span> / <span id="mistakes"></span> of <span id="completed"></span>
                         <td class=""><span id="score">
-                        <td class="progress"><span id="correct"></span> of <span id="completed"></span>
                         <td class="timer"><span id="minutes"></span>:<span id="seconds"></span>.<span id="milliseconds"></span>
                 </table>
                 <table id='board'>
@@ -201,9 +233,27 @@
                     <tr>
                         <td class="">
                         <td class="">
-                        <td class="controls"><div class="pause" onclick="_Manager.changeState('pause');"></div>
+                        <td class="controls">
+                            <input type="checkbox" name="unmute" id="unmute" onchange="setSoundVolume(unmute)">
+                            <label for="unmute" class="unmute">
+                                <img src="http://upload.wikimedia.org/wikipedia/commons/3/3f/Mute_Icon.svg" alt="Mute_Icon.svg" title="Mute icon">
+                            </label>
+                            <label for="unmute" class="mute">
+                                <img src="http://upload.wikimedia.org/wikipedia/commons/2/21/Speaker_Icon.svg" alt="Speaker_Icon.svg" title="Unmute/speaker icon">
+                            </label>
+                            <div class="pause" onclick="_Manager.changeState('pause');"></div>
                 </table>
-                <div id="scoreboard">
+                <div id="scoreboardContainer" class='hidden'>
+                    <div class="obscurer"></div>
+                    <div id="scoreboard" class="menu center">
+                        <div id="scoreboardPanel" class="center">
+                            <div style="font-size:+3em">Great Job!</div>
+                            <div style="font-size:+2em">High score <span id="highscore"></span> in <span id="totaltime"></span></div>
+                            <div style="font-size:+2em">Correct Answers <span id="correct"></span></div>
+                            <div style="font-size:+2em">Next Skill Up <span id="nextskillup"></span></div>
+                            <div class='button' onclick="_Manager.state.TryUpdate('menutransition')">Menu</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -273,8 +323,11 @@
                     data.next = state;
                 }
             };
+            this.PreResolve = function() {
+                return data.cur != data.next;
+            };
             this.Resolve = function() {
-                if( data.cur != data.next ) {
+                if( self.PreResolve() ) {
                     data.prev = data.cur;
                     data.cur = data.next;
                     return true;
@@ -306,8 +359,11 @@
     </script>
     <script>
         function updateLoop(timestamp) {
-            
+            if( _Manager.state.PreResolve() === true ) {
+                loop( 'statecomplete' );
+            }
             if( _Manager.state.Resolve() === true ) {
+                
                 loop( 'stateupdate' );
             }
             if( _Manager.time.prev != 0 ) {
@@ -334,7 +390,6 @@
             _Manager.time.prev = _Manager.time.cur;
             _Manager.time.cur = timestamp;
             _Manager.time.delta = (_Manager.time.cur - _Manager.time.prev) / 1000;
-console.info( "delta -> " + _Manager.time.delta );
         }
         requestAnimationFrame(updateLoop);
     </script>

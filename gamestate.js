@@ -50,6 +50,7 @@ var _gameData = {
 	difficulty : 'easy',
 	range : { min:0, max:10, base:undefined },
 	correct : undefined,
+	mistakes : undefined,
 	streak : 0,
 	limits : undefined,
 	mode : undefined,
@@ -61,7 +62,9 @@ function getModes(mode) {
 }
 
 function resetLevel() {
+	_Manager.data.keys = [];
 	_gameData.level = 0;
+	_gameData.mistakes = 0;
 	_gameData.limits = _gameData.difficulties[ _gameData.difficulty];
 	var levelData = _gameData.levels[ _gameData.level ];
 	setRange( levelData, getSkill(levelData) );
@@ -71,7 +74,7 @@ function resetLevel() {
 	_gameData.streak = 0;
 	_gameData.score = 0;
 	_gameData.time = { delta: 0, average: undefined, level: 0, total: 0 };
-	$('.progress #correct,.progress #completed').text("0");
+	$('.progress #correct,.progress #completed,.progress #mistakes').text("0");
 }
 
 function nextLevel() {
@@ -132,6 +135,8 @@ function isMaxSkill(levelData) {
 }
 
 function setupMode( gameState ) {
+	var sounds = [ new Audio('Complete.mp3') ];
+
 	var state;
 	gameTransition( gameState.GetStateObject('gametransition') );
 	game( gameState.GetStateObject('game') );
@@ -140,11 +145,37 @@ function setupMode( gameState ) {
 	gameResolve( gameState.GetStateObject('gameresolve') );
 	gameLevelTransition( gameState.GetStateObject('gameleveltransition') )
 
-	// state = gameState.GetStateObject('gamescoring');
+	state = gameState.GetStateObject('gamescoring');
+	state.insert('stateupdate',function() {
+		stopSound(_gameData.music);
+		playSound(sounds.random());
+
+		$('#scoreboardContainer').removeClass('hidden');
+		var $info = $('#scoreboard');
+		$info.find('#highscore').html(_gameData.score );
+		// just get text from time elements??
+		$info.find('#totaltime').html( $('.timer').text() );
+
+		var totalCorrect = _gameData.correct;
+		for(var i=_gameData.level-1;i>=0;i--) {
+			totalCorrect+=_gameData.levels[ i ].completed;
+		}
+
+		$info.find('#correct').html(totalCorrect);
+
+		var nextSkill = 5 - _gameData.correct%5;
+		var nextLevel = _gameData.levels[ _gameData.level ].completed - _gameData.correct;
+
+		$info.find('#nextskillup').html( Math.min( nextSkill, nextLevel) );
+	});
+	state.insert('statecomplete',function() {
+		$('#scoreboardContainer').addClass('hidden');
+	});
+
 	state = gameState.GetStateObject('menutransition');
 	state.insert('stateupdate',function() {
 		try {
-			stopLoopingSound(_gameData.music);
+			stopSound(_gameData.music);
 			_gameData.music = undefined;
 		} catch(e) {}
 		try {
@@ -263,26 +294,38 @@ function gameWait(state) {
 		_gameData.time.delta += time.delta;
 		_gameData.time.level += time.delta;
 		_gameData.time.total += time.delta;
-		$minContainer.html( format( _gameData.time.total / 60 / 1000, 2, "0" ) );
-		$secContainer.html( format( (_gameData.time.total / 1000) % 60, 2, "0" ) );
-		$milContainer.html( format( (_gameData.time.total / 100) % 100 , 2, "0" ) );
+		$minContainer.html( format( (_gameData.time.total / 60) % 60, 1, "0" ) );
+		$secContainer.html( format( (_gameData.time.total ) % 60, 2, "0" ) );
+		$milContainer.html( format( (_gameData.time.total * 100) % 100 , 2, "0" ) );
 	});
 }
 
 function playSound(sound) {
 	try {
 		sound.pause();
-		sound.currentTime = 0
+		sound.currentTime = 0;
 		sound.volume = .5;
+		if( sound.prevVol > 0 ) {
+			sound.volume = sound.prevVol;
+		}
 		sound.play();
 	} catch (e) {
 		console.error(e);
 	}
 }
 
+function stopSound(sound) {
+	if( sound.volume > 0 ) {
+		sound.prevVol = sound.volume;
+	}
+	sound.volume = 0;
+	sound.pause();
+}
+
 function handlerLooping() {
 	try {
 		this.pause();
+		this.prevVol = this.volume;
 		this.volume = .2;
 		this.currentTime = 0;
 		this.play();
@@ -294,7 +337,8 @@ function handlerLooping() {
 function createLoopingSound(file) {
 	var sound = new Audio(file); 
 	try {
-		sound.volume = .2;
+		sound.prevVol = 
+			sound.volume = .2;
 		if( typeof sound.loop === 'boolean' ) {
 			sound.loop = true;
 		} else {
@@ -306,17 +350,25 @@ function createLoopingSound(file) {
 	return sound;
 }
 
-function stopLoopingSound(sound) {
-	if( typeof sound.loop === 'boolean' ) {
-		sound.loop = false;
-	} else {
-		sound.removeEventListener('ended', handlerLooping);
+function setSoundVolume(element) {
+	if( ! _gameData.music ) {
+		return;
 	}
-	sound.volume = 0;
-	sound.pause();
+	if(element.checked) {
+		// mute
+		_gameData.music.prevVol = _gameData.music.volume;
+		_gameData.music.volume = 0;
+	} else {
+		// unmute
+		_gameData.music.volume = _gameData.music.prevVol;
+	}
 }
 
 function calculateScore() {
+/*  NOT BEING USED YET */
+/*  NOT BEING USED YET */
+/*  NOT BEING USED YET */
+
 	var bonus = 0;
 	var total = 0;
 	// var 
@@ -349,6 +401,10 @@ function gameResolve(state) {
 	};
 
 	state.insert('preupdate',function() {
+		function incrementValue($elem) {
+			var value = parseInt($elem.text()) + 1;
+			$elem.text( value );
+		}
 		var cnt = _gameData.problems[ _gameData.level ].length;
 		var data = _gameData.problems[ _gameData.level ][cnt-1];
 
@@ -360,9 +416,7 @@ function gameResolve(state) {
 		if( parseFloat(data.answer) == parseFloat(data.expected) ) {
 			_gameData.correct++;
 			$('#toast').text( phrases.correct.random() );
-			var $elem = $('#correct');
-			var value = parseInt($elem.text()) + 1;
-			$elem.text( value );
+			incrementValue( $('#correct') );
 			playSound(sounds.correct.random());
 			_gameData.streak++;
 
@@ -373,6 +427,8 @@ function gameResolve(state) {
 
 		} else {
 			_gameData.streak = 0;
+			_gameData.mistakes++;
+			incrementValue( $('#mistakes') );
 			$('#toast').text( phrases.incorrect.random() );
 			playSound(sounds.incorrect.random());
 		}
@@ -381,14 +437,13 @@ function gameResolve(state) {
 	state.insert('postupdate',function() {
 		var progress = _gameData.correct;
 		var time = _gameData.time.level / 1000; // miliseconds to seconds
-		var mistakes = _gameData.problems[ _gameData.level ].length - _gameData.correct;
 
 		$('#score').attr('tgt',_gameData.score);
 		
-		/*if(  _gameData.limits.mistakes !== undefined && mistakes >= _gameData.limits.mistakes 
+		if(  _gameData.limits.mistakes !== undefined && _gameData.mistakes >= _gameData.limits.mistakes 
 		  || _gameData.limits.time !== undefined && time >= _gameData.limits.time ) {
 		  	_Manager.state.TryUpdate('gamescoring');
-		} else*/ if(   ( progress > 0 && progress%5==0 )
+		} else if(   ( progress > 0 && progress%5==0 )
 			|| _gameData.levels[ _gameData.level ].completed <= progress ) {
 			_Manager.state.TryUpdate('gameleveltransition');
 		} else {
