@@ -9,6 +9,25 @@ Math.randomBetween = function(min,max) {
 	return Math.floor( Math.random() * b + min );
 }
 
+Math.randomWeighted = function(range) {
+	// [  {value: #, weight: #}, {} ]
+	var rand = Math.random(), i=0, weights=0,len=range.length,item;
+	for(i=0;i<len;i++) {
+		item = range[i];
+		weights+=item.weight;
+	}
+	var value = range[0], cumulative = 0;
+	for(i=0;i<len;i++) {
+		item = range[i];
+		if( cumulative >= rand ) {
+			break;
+		}
+		cumulative += item.weight/weights;
+		value = item.value;
+	}
+	return value;
+}
+
 function GameMode() {
 	var _self = this;
 	this.add = function (key,cb) {
@@ -29,14 +48,14 @@ var _gameData = {
 		'Multiplication' : _multiplication
 	},
 	level : undefined,
-	levels : [ {min:0,max:5,base:{min:0,max:"max",step:1},completed:25},
-               {min:0,max:10,base:{min:5,max:"max",step:1},completed:25},
-	           {min:0,max:20,base:{min:5,max:"max",step:3},completed:25},
-	           {min:0,max:30,base:{min:10,max:"max",step:4},completed:25},
-	           {min:0,max:50,base:{min:10,max:"max",step:8},completed:25},
-	           {min:0,max:70,base:{min:15,max:"max",step:13},completed:25},
-	           {min:0,max:100,base:{min:20,max:"max",step:16},completed:25}
-	          ],
+	levels : [ {min:0,max:5,weights:[],base:{min:0,max:"max",step:1},completed:25},
+	           {min:0,max:10,weights:[],base:{min:5,max:"max",step:1},completed:25},
+	           {min:0,max:20,weights:[],base:{min:5,max:"max",step:3},completed:25},
+	           {min:0,max:30,weights:[],base:{min:10,max:"max",step:4},completed:25},
+	           {min:0,max:50,weights:[],base:{min:10,max:"max",step:8},completed:25},
+	           {min:0,max:70,weights:[],base:{min:15,max:"max",step:13},completed:25},
+	           {min:0,max:100,weights:[],base:{min:20,max:"max",step:16},completed:25}
+	        ],
 	difficulties : { 
 		'training' : {mistakes:undefined,time:undefined,multiplier:0,base:1}, // training should help you practice ones you don't know
 		    'easy' : {mistakes:25,time:120,multiplier:2,base:100}, 
@@ -62,6 +81,15 @@ function getModes(mode) {
 }
 
 function resetLevel() {
+	for(var i=0;i<_gameData.levels.length;i++) {
+		var data = _gameData.levels[i];
+		var min = data.min, max = data.max, range = max-min;
+		data.weights = [];
+		for(var j=0;j<=range;j++) {
+			data.weights.push( { value: min+j, weight: Math.randomBetween(1,range) } );
+		}
+	}
+
 	_Manager.data.keys = [];
 	_gameData.level = 0;
 	_gameData.mistakes = 0;
@@ -114,7 +142,7 @@ function setModeState(mode) {
 }
 
 function setRange(range, base) {
-	_gameData.range = { min: range.min, max: range.max, base: base};
+	_gameData.range = { min: range.min, max: range.max, base: base, weights : range.weights};
 }
 
 function getSkill(levelData) {
@@ -472,9 +500,14 @@ function gameLevelTransition(state) {
 _addition.add('problem', function() {
 	// what is the range for the answer?
 	// choose number between range
-	var expected = Math.randomBetween( _gameData.range.min, _gameData.range.max ),
-	    top = Math.randomBetween(0, Math.min(expected,_gameData.range.base)), 
-	    bottom = Math.floor( expected - top );
+	var expected,top,bottom;
+	if( _gameData.range.weights ) {
+		expected = Math.randomWeighted( _gameData.range.weights );
+	} else {
+	    expected = Math.randomBetween( _gameData.range.min, _gameData.range.max );
+	}
+	top = Math.randomBetween(0, Math.min(expected,_gameData.range.base));
+	bottom = Math.floor( expected - top );
 	return { sign: '+', top: top, bottom: bottom, expected: expected, answer: undefined };
 });
 
